@@ -18,27 +18,42 @@ local Widget      -- set this after widget.lua has loaded
 
 local function _buildCache()
    local data = {}
-   for c = 1, GetNumAchievementCategories() do
-      local name, subcategoryCount, achievementCount, _, _, _ = GetAchievementCategoryInfo(c)
-      for a = 1, achievementCount do
-         local id = GetAchievementId(c, s, a)
-         if not IsAchievementComplete(id) then
-            data[id] = Achievement:new(id)
-            if not data[id]:hasAnyProgress() then
-               data[id] = nil
-            end
-         end
+   --
+   local function _addBaseAchievement(achievement)
+      if achievement:hasAnyProgress() and not achievement.complete then
+         data[achievement.id] = achievement
       end
-      for s = 1, subcategoryCount do
-         local name, achievementCount, _, _, _ = GetAchievementSubCategoryInfo(c, s)
-         for a = 1, achievementCount do
-            local id = GetAchievementId(c, s, a)
-            if not IsAchievementComplete(id) then
-               data[id] = Achievement:new(id)
-               if not data[id]:hasAnyProgress() then
-                  data[id] = nil
-               end
-            end
+      --
+      -- Only the first achievement in a "line" is actually in 
+      -- the category/subcategory tree; the others are only 
+      -- accessible via the GetNextAchievementInLine getter, 
+      -- so we need to loop over them and cache them here.
+      --
+      local p = achievement
+      for _, id in ipairs(achievement:getAllNextAchievementIDs()) do
+         local n = Achievement:new(id)
+         if n.prevAchievementId == 0 then -- API BUG: GetPreviousAchievementInLine is broken
+            n.prevAchievementId = p.id
+         end
+         if not n.complete then
+            data[id] = n
+         end
+         --
+         p = n
+      end
+   end
+   --
+   for ci = 1, GetNumAchievementCategories() do
+      local name, subcategoryCount, achievementCount, _, _, _ = GetAchievementCategoryInfo(ci)
+      for ai = 1, achievementCount do
+         local id = GetAchievementId(ci, nil, ai)
+         _addBaseAchievement(Achievement:new(id))
+      end
+      for si = 1, subcategoryCount do
+         local name, achievementCount, _, _, _ = GetAchievementSubCategoryInfo(ci, si)
+         for ai = 1, achievementCount do
+            local id = GetAchievementId(ci, si, ai)
+            _addBaseAchievement(Achievement:new(id))
          end
       end
    end
@@ -68,6 +83,9 @@ local function OnAchievementUpdate(eventCode, achievementId)
       changes = achievement:flagAllProgressAsChanged()
    else
       changes = achievement:checkForUpdates()
+   end
+   if not achievement:isCurrentLineStep() then
+      return
    end
    if changes then
       --
@@ -113,6 +131,40 @@ local function OnAddonLoaded(eventCode, addonName)
 end
 EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_ADD_ON_LOADED, OnAddonLoaded)
 
+function AchievementUpdates.DbgLookUpByName(name)
+   for k, v in pairs(AchievementUpdates.cache) do
+      if v.name:lower() == name:lower() then
+         d(v.name .. " == " .. k)
+         return
+      end
+   end
+   d("not found")
+end
+function AchievementUpdates.DbgFindAchievementInTree(search)
+   for c = 1, GetNumAchievementCategories() do
+      local _, subcategoryCount, achievementCount, _, _, _ = GetAchievementCategoryInfo(c)
+      for a = 1, achievementCount do
+         local id   = GetAchievementId(c, nil, a)
+         local name = GetAchievementInfo(id)
+         if name == search then
+            d(name .. " == " .. c .. "[" .. a .. "]")
+            return
+         end
+      end
+      for s = 1, subcategoryCount do
+         local name, achievementCount, _, _, _ = GetAchievementSubCategoryInfo(c, s)
+         for a = 1, achievementCount do
+            local id   = GetAchievementId(c, s, a)
+            local name = GetAchievementInfo(id)
+            if name == search then
+               d(name .. " == " .. c .. "/" .. s .. "[" .. a .. "]")
+               return
+            end
+         end
+      end
+   end
+   d("not found")
+end
 function AchievementUpdates.Test()
    local achievement = (function()
       for k, v in pairs(AchievementUpdates.cache) do

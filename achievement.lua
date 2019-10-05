@@ -31,7 +31,7 @@ function Achievement:new(id, last, getFullData)
    end
    --
    result.firstAchievementId = GetFirstAchievementInLine(id)
-   result.prevAchievementId  = GetPreviousAchievementInLine(id)
+   result.prevAchievementId  = GetPreviousAchievementInLine(id) -- NOTE: broken
    result.nextAchievementId  = GetNextAchievementInLine(id)
    --
    result.criteria = {}
@@ -104,6 +104,17 @@ function Achievement:checkForUpdates()
       return changes
    end
 end
+function Achievement:getAllNextAchievementIDs()
+   local ids   = {}
+   local count = 0
+   local id = GetNextAchievementInLine(self.id)
+   while (id ~= 0) do
+      count = count + 1
+      ids[count] = id
+      id = GetNextAchievementInLine(id)
+   end
+   return ids
+end
 function Achievement:hasAnyProgress()
    for i, c in ipairs(self.criteria) do
       if c.completed > 0 then
@@ -111,6 +122,20 @@ function Achievement:hasAnyProgress()
       end
    end
    return false
+end
+function Achievement:isCurrentLineStep()
+   --
+   -- Code specific to AchievementUpdates
+   --
+   if self.prevAchievementId ~= 0 then
+      if not IsAchievementComplete(self.prevAchievementId) then
+         return false
+      end
+   end
+   if self.nextAchievementId ~= 0 then
+      return not IsAchievementComplete(self.id)
+   end
+   return true
 end
 function Achievement:flagAllProgressAsChanged()
    local changes = {}
