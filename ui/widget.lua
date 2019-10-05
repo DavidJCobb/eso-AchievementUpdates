@@ -69,6 +69,9 @@ function Item:redraw()
       self.control = control
       self.poolKey = key
       control:SetHidden(false)
+      if control.animSlideUp then
+         control.animSlideUp:Stop()
+      end
    end
    if control.anim then
       --
@@ -143,6 +146,7 @@ end
 
 function Widget:initialize(ctrl)
    self.control = ctrl
+   self.dragBar = GetControl(ctrl, "Drag")
    do
       local factoryFunction =
          function(objectPool)
@@ -150,8 +154,24 @@ function Widget:initialize(ctrl)
          end
       self.pool = ZO_ObjectPool:New(factoryFunction, ZO_ObjectPool_DefaultResetControl)
    end
-   --self.fragment = ZO_SimpleSceneFragment:New(control, "ItemTrigBlockMostKeys")
-   --HUD_UI_SCENE:AddFragment(self.fragment)
+   EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_GAME_CAMERA_UI_MODE_CHANGED, function(eventCode)
+       Widget:onUICursorToggle()
+   end)
+end
+function Widget:onAddonLoaded()
+   self.fragment = ZO_HUDFadeSceneFragment:New(self.control)
+   HUD_SCENE:AddFragment(self.fragment)
+   HUD_UI_SCENE:AddFragment(self.fragment)
+   self:reflow()
+end
+
+function Widget:onUICursorToggle()
+   local isUIMode = IsGameCameraUIModeActive()
+   self.dragBar:SetHidden(not isUIMode)
+end
+function Widget:onMoveStop()
+   AchievementUpdatesSavedata.widgetX = self.control:GetLeft()
+   AchievementUpdatesSavedata.widgetY = self.control:GetTop()
 end
 
 local MAX_TO_DISPLAY = 3
@@ -162,6 +182,11 @@ local POLL_FREQUENCY_MS        = 200
 local function _update()
    local now   = GetGameTimeMilliseconds()
    local count = #Widget.items
+   if count == 0 then
+      Widget.timerRunning = false
+      EVENT_MANAGER:UnregisterForUpdate(UPDATE_REGISTRATION_NAME)
+      return
+   end
    local anyDeleted = false
    for i = 1, count do
       local item = Widget.items[i]
@@ -191,16 +216,19 @@ local function _update()
       if j == 0 then
          Widget.timerRunning = false
          EVENT_MANAGER:UnregisterForUpdate(UPDATE_REGISTRATION_NAME)
-      else
-         Widget:reflow(count - j)
       end
+      Widget:reflow(count - j)
    end
 end
 
 function Widget:reflow(countDeleted)
    table.sort(self.items, function(a, b) return a < b end)
    local count   = #self.items
-   local yOffset = 0
+   local yOffset = self.dragBar:GetHeight() + 8
+   if count == 0 then
+      self.control:SetHeight(yOffset - 8)
+      return
+   end
    local itemHeight
    for i = 1, math.min(MAX_TO_DISPLAY, count) do
       local item = self.items[i]
@@ -212,8 +240,16 @@ function Widget:reflow(countDeleted)
          local bar = control:GetNamedChild("Bar")
          itemHeight = bar:GetBottom() - control:GetTop()
       end
-      if yOffset == 0 and countDeleted then
-         yOffset = itemHeight * countDeleted
+      if i == 1 and countDeleted then
+         --
+         -- When an entry is deleted from the list, we apply a 
+         -- "slide up" animation to the other rendered entries. 
+         -- We need to leave some blank space for them to slide 
+         -- up into. The animation moves them upward, so their 
+         -- base position must be beneath the space they're 
+         -- sliding into.
+         --
+         yOffset = yOffset + (itemHeight * countDeleted)
       end
       control:ClearAnchors()
       control:SetAnchor(TOPLEFT, self.control, TOPLEFT, 0, yOffset)
@@ -227,6 +263,7 @@ function Widget:reflow(countDeleted)
       --
       yOffset = yOffset + itemHeight + 16
    end
+   self.control:SetHeight(yOffset - 16)
 end
 
 function Widget:showCriterion(achievement, criteriaIndex)

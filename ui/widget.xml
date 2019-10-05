@@ -48,15 +48,36 @@
          mouseEnabled="true"
          movable="true"
          clampedToScreen="true"
-         resizeToFitDescendents="true"
       >
-         <Anchor point="TOPLEFT" offsetX="48" offsetY="175" />
+         <Anchor point="TOPLEFT" offsetX="48" offsetY="190" />
+         <Dimensions x="256" />
          <OnInitialized>
             AchievementUpdates.Widget:initialize(self)
          </OnInitialized>
+         <OnMoveStop>
+            AchievementUpdates.Widget:onMoveStop()
+         </OnMoveStop>
          <Controls>
-            <Texture name="$(parent)Bg" excludeFromResizeToFitExtents="true" color="00000040">
+            <Texture name="$(parent)Bg" excludeFromResizeToFitExtents="true" color="00000000">
                <AnchorFill />
+            </Texture>
+            <Texture name="$(parent)Drag"
+               hidden="true"
+               color="000000"
+            >
+               <Anchor point="TOPLEFT" />
+               <Dimensions x="256" y="24" />
+               <Controls>
+                  <Label name="$(parent)Text"
+                     font="ZoFontGamepadBold20"
+                     modifyTextType="UPPERCASE"
+                     color="FFFFFF"
+                     text="Achievement Updates - Drag"
+                  >
+                     <Anchor point="TOPLEFT"  offsetY="1" offsetX="6" />
+                     <Anchor point="TOPRIGHT" offsetY="1" offsetX="-6" />
+                  </Label>
+               </Controls>
             </Texture>
          </Controls>
       </TopLevelControl>

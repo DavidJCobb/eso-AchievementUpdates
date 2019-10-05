@@ -3,17 +3,10 @@ AchievementUpdates = {
 }
 
 local Achievement -- set this after achievement.lua has loaded
+local Widget      -- set this after widget.lua has loaded
 
 --[[
    POTENTIAL IMPROVEMENTS:
-      
-    - Figure out how to get this thing into the HUD scene 
-      without ESO choking, so that it auto-hides and auto-
-      shows as menus are opened and closed
-      
-    - When the player enables the UI cursor, show a bar at the 
-      top of the widget, so they can drag it around even when 
-      it isn't showing any achievement updates.
    
     - Allow the player to change the maximum number of items 
       that can display.
@@ -96,8 +89,22 @@ end
 
 local function Initialize()
    Achievement = AchievementUpdates.Achievement
+   Widget      = AchievementUpdates.Widget
    _buildCache()
    EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_ACHIEVEMENT_UPDATED, OnAchievementUpdate)
+   Widget:onAddonLoaded()
+   if not AchievementUpdatesSavedata then
+      AchievementUpdatesSavedata = {
+         version = 1,
+         widgetX = Widget.control:GetLeft() or  48,
+         widgetY = Widget.control:GetTop()  or 190,
+      }
+   else
+      local sd      = AchievementUpdatesSavedata
+      local control = Widget.control
+      control:ClearAnchors()
+      control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sd.widgetX, sd.widgetY)
+   end
 end
 local function OnAddonLoaded(eventCode, addonName)
    if addonName == "AchievementUpdates" then
@@ -143,7 +150,7 @@ function AchievementUpdates.Test()
    local Widget = AchievementUpdates.Widget
    Widget:showCriterion(achievement, 1)
    zo_callLater(function() Widget:showCriterion(achievement, 2) end, 100)
-   zo_callLater(function() Widget:showCriterion(achievement, 3) end, 700)
+   zo_callLater(function() Widget:showCriterion(achievement, 3) end, 100)
    zo_callLater(function() Widget:showCriterion(achievement, 4) end, 1200)
    zo_callLater(function() Widget:showCriterion(achievement, 5) end, 2000)
    --zo_callLater(function() Widget:showCriterion(achievement, 1) end, 4000)

@@ -1,6 +1,7 @@
 ## Title: Achievement Updates
 ## APIVersion: 100027
 ## AddOnVersion: 1
+## SavedVariables: AchievementUpdatesSavedata
 
 lang/en.lua
 lang/$(language).lua
