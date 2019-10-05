@@ -1,0 +1,64 @@
+<GuiXml>
+   <Animations>
+      <AnimationTimeline name="AchievementUpdates_CriterionDismiss">
+         <Animations>
+            <AlphaAnimation delay="50" duration="150" startAlpha="1" endAlpha="0">
+               <EasingFunction> return ZO_EaseOutQuadratic(progress) </EasingFunction>
+            </AlphaAnimation>
+            <TranslateAnimation duration="200" anchorIndex="0" deltaX="-30">
+               <EasingFunction> return ZO_EaseOutQuadratic(progress) </EasingFunction>
+            </TranslateAnimation>
+         </Animations>
+      </AnimationTimeline>
+      <AnimationTimeline name="AchievementUpdates_SlideUp">
+         <Animations>
+            <TranslateAnimation duration="180" anchorIndex="0" deltaY="0">
+            </TranslateAnimation>
+         </Animations>
+      </AnimationTimeline>
+   </Animations>
+   <Controls>
+      <Control name="AchievementUpdates_Criterion" virtual="true">
+         <Controls>
+            <Label name="$(parent)AchName"
+               font="ZoFontGamepadBold20"
+               modifyTextType="UPPERCASE"
+               color="FFFF00"
+            >
+               <Anchor point="TOPLEFT" />
+            </Label>
+            <Label name="$(parent)CritName"
+               font="ZoFontGamepad20"
+               modifyTextType="UPPERCASE"
+               color="FFFFFF"
+            >
+               <Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" relativeTo="$(parent)AchName" />
+            </Label>
+            <StatusBar name="$(parent)Bar" inherits="ZO_GamepadArrowStatusBarWithBGMedium">
+               <Anchor point="TOPLEFT" relativeTo="$(parent)CritName" relativePoint="BOTTOMLEFT" />
+               <Dimensions x="256" />
+               <OnInitialized>
+                  self.gloss = self:GetNamedChild("Gloss")
+                  ZO_StatusBar_SetGradientColor(self, ZO_SKILL_XP_BAR_GRADIENT_COLORS)
+               </OnInitialized>
+            </StatusBar>
+         </Controls>
+      </Control>
+      <TopLevelControl name="AchievementUpdate"
+         mouseEnabled="true"
+         movable="true"
+         clampedToScreen="true"
+         resizeToFitDescendents="true"
+      >
+         <Anchor point="TOPLEFT" offsetX="48" offsetY="175" />
+         <OnInitialized>
+            AchievementUpdates.Widget:initialize(self)
+         </OnInitialized>
+         <Controls>
+            <Texture name="$(parent)Bg" excludeFromResizeToFitExtents="true" color="00000040">
+               <AnchorFill />
+            </Texture>
+         </Controls>
+      </TopLevelControl>
+   </Controls>
+</GuiXml>
