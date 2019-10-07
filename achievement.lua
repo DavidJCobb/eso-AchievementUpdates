@@ -124,9 +124,6 @@ function Achievement:hasAnyProgress()
    return false
 end
 function Achievement:isCurrentLineStep()
-   --
-   -- Code specific to AchievementUpdates
-   --
    if self.prevAchievementId ~= 0 then
       if not IsAchievementComplete(self.prevAchievementId) then
          return false

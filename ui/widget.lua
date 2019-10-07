@@ -6,6 +6,9 @@ local Widget = {
 }
 AchievementUpdates.Widget = Widget
 
+local POOL_CRITERIA_CHECKBOX
+local POOL_CRITERIA_METER
+
 local Item = {}
 Item.__index = Item
 local sequence = 0
@@ -16,7 +19,8 @@ function Item:new(achievement, criterion)
       firstShown  = GetGameTimeMilliseconds(), -- used to sort within the UI
       visible     = false,
       control     = nil,
-      poolKey     = nil,
+      pool        = nil, -- pool used to generate the control
+      poolKey     = nil, -- key for the control, in that pool
       dismissed   = false,
       dismissAnim = nil, -- nil == animation has finished or hasn't started
    }
@@ -29,6 +33,7 @@ function Item:new(achievement, criterion)
    if type(criterion) == "number" then
       result.criterion = achievement.criteria[criterion]
    end
+   result.isCheckbox  = (criterion.required == 1)
    result.lastUpdated = result.firstShown
    return result
 end
@@ -64,9 +69,14 @@ function Item:redraw()
    end
    local control = self.control
    if not control then
+      local pool = POOL_CRITERIA_METER
+      if self.isCheckbox then
+         pool = POOL_CRITERIA_CHECKBOX
+      end
       local key
-      control, key = Widget.pool:AcquireObject()
+      control, key = pool:AcquireObject()
       self.control = control
+      self.pool    = pool
       self.poolKey = key
       control:SetHidden(false)
       if control.animSlideUp then
@@ -88,11 +98,8 @@ function Item:redraw()
    local criterion   = self.criterion
    control:GetNamedChild("AchName"):SetText(achievement.name)
    control:GetNamedChild("CritName"):SetText(criterion.description)
-   if criterion.required == 1 then
-      -- TODO: checkbox
-      local bar = control:GetNamedChild("Bar")
-      bar:SetMinMax(0, 1)
-      bar:SetValue(1)
+   if self.isCheckbox then
+      -- nothing to do, yet
    else
       control:GetNamedChild("CritName"):SetText(zo_strformat(GetString(SI_ACHIEVEMENT_UPDATE_FORMAT_OBJECTIVE), criterion.description, criterion.completed, criterion.required, criterion.countChange))
       local bar = control:GetNamedChild("Bar")
@@ -150,13 +157,26 @@ function Widget:initialize(ctrl)
    do
       local factoryFunction =
          function(objectPool)
-            return ZO_ObjectPool_CreateNamedControl(string.format("%sRow", self.control:GetName()), "AchievementUpdates_Criterion", objectPool, self.control)
+            return ZO_ObjectPool_CreateNamedControl(string.format("%sCriteriaCheckboxRow", self.control:GetName()), "AchievementUpdates_CriterionCheckbox", objectPool, self.control)
          end
-      self.pool = ZO_ObjectPool:New(factoryFunction, ZO_ObjectPool_DefaultResetControl)
+      local pool = ZO_ObjectPool:New(factoryFunction, ZO_ObjectPool_DefaultResetControl)
+      POOL_CRITERIA_CHECKBOX = pool
    end
-   EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_GAME_CAMERA_UI_MODE_CHANGED, function(eventCode)
-       Widget:onUICursorToggle()
-   end)
+   do
+      local factoryFunction =
+         function(objectPool)
+            return ZO_ObjectPool_CreateNamedControl(string.format("%sCriteriaMeterRow", self.control:GetName()), "AchievementUpdates_Criterion", objectPool, self.control)
+         end
+      local pool = ZO_ObjectPool:New(factoryFunction, ZO_ObjectPool_DefaultResetControl)
+      POOL_CRITERIA_METER = pool
+   end
+   do
+      local function _listener()
+         Widget:onUICursorToggle()
+      end
+      EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_GAME_CAMERA_UI_MODE_CHANGED, _listener)
+      EVENT_MANAGER:RegisterForEvent("AchievementUpdates", EVENT_GAME_FOCUS_CHANGED, _listener)
+   end
 end
 function Widget:onAddonLoaded()
    self.fragment = ZO_HUDFadeSceneFragment:New(self.control)
@@ -166,7 +186,7 @@ function Widget:onAddonLoaded()
 end
 
 function Widget:onUICursorToggle()
-   local isUIMode = IsGameCameraUIModeActive()
+   local isUIMode = IsGameCameraUIModeActive() and DoesGameHaveFocus()
    self.dragBar:SetHidden(not isUIMode)
 end
 function Widget:onMoveStop()
@@ -187,14 +207,19 @@ local function _update()
       EVENT_MANAGER:UnregisterForUpdate(UPDATE_REGISTRATION_NAME)
       return
    end
-   local anyDeleted = false
+   local deletedCheckboxes = 0
+   local deletedMeters     = 0
    for i = 1, count do
       local item = Widget.items[i]
       if item.dismissed then
          if not item.dismissAnim then -- animation has completed
-            Widget.pool:ReleaseObject(item.poolKey)
+            item.pool:ReleaseObject(item.poolKey)
             Widget.items[i] = nil
-            anyDeleted = true
+            if item.isCheckbox then
+               deletedCheckboxes = deletedCheckboxes + 1
+            else
+               deletedMeters = deletedMeters + 1
+            end
          end
       elseif item.visible then
          if now - item.lastUpdated > MAX_SHOW_DURATION_MS then
@@ -202,7 +227,7 @@ local function _update()
          end
       end
    end
-   if anyDeleted then
+   if deletedCheckboxes > 0 or deletedMeters > 0 then
       local list = {}
       local j    = 0
       for i = 1, count do
@@ -217,53 +242,74 @@ local function _update()
          Widget.timerRunning = false
          EVENT_MANAGER:UnregisterForUpdate(UPDATE_REGISTRATION_NAME)
       end
-      Widget:reflow(count - j)
+      Widget:reflow(deletedCheckboxes, deletedMeters)
    end
 end
 
-function Widget:reflow(countDeleted)
-   table.sort(self.items, function(a, b) return a < b end)
-   local count   = #self.items
-   local yOffset = self.dragBar:GetHeight() + 8
-   if count == 0 then
-      self.control:SetHeight(yOffset - 8)
-      return
-   end
-   local itemHeight
-   for i = 1, math.min(MAX_TO_DISPLAY, count) do
-      local item = self.items[i]
-      item:show()
-      item:redraw()
-      --
-      local control = item.control
-      if not itemHeight then
-         local bar = control:GetNamedChild("Bar")
-         itemHeight = bar:GetBottom() - control:GetTop()
+do
+   local heightCheckbox
+   local heightMeter
+   function Widget:reflow(countDeletedCheckboxes, countDeletedMeters)
+      table.sort(self.items, function(a, b) return a < b end)
+      local count   = #self.items
+      local yOffset = self.dragBar:GetHeight() + 8
+      if count == 0 then
+         self.control:SetHeight(yOffset - 8)
+         return
       end
-      if i == 1 and countDeleted then
-         --
-         -- When an entry is deleted from the list, we apply a 
-         -- "slide up" animation to the other rendered entries. 
-         -- We need to leave some blank space for them to slide 
-         -- up into. The animation moves them upward, so their 
-         -- base position must be beneath the space they're 
-         -- sliding into.
-         --
-         yOffset = yOffset + (itemHeight * countDeleted)
-      end
-      control:ClearAnchors()
-      control:SetAnchor(TOPLEFT, self.control, TOPLEFT, 0, yOffset)
+      local slideUpDistance
       do
-         if countDeleted then
-            item:slideUpBy(itemHeight * countDeleted)
-         else
-            item:slideUpBy(0)
-         end
+         local dc = ((countDeletedCheckboxes or 0) * (heightCheckbox or 0))
+         local dm = ((countDeletedMeters or 0) * (heightMeter or 0))
+         slideUpDistance = dc + dm
+         --
+         -- The slide-up distance is only relevant when one or more displayed 
+         -- items has been deleted (i.e. it was dismissed and completed its 
+         -- "dismiss" animation). The height values should be computed the 
+         -- first time an item of each type is displayed, so by the time the 
+         -- slide-up distance is actually *used*, they'll be non-nil.
+         --
       end
-      --
-      yOffset = yOffset + itemHeight + 16
+      for i = 1, math.min(MAX_TO_DISPLAY, count) do
+         local item = self.items[i]
+         item:show()
+         item:redraw()
+         --
+         local control = item.control
+         if item.isCheckbox then
+            if not heightCheckbox then
+               local critName = control:GetNamedChild("CritName")
+               heightCheckbox = critName:GetBottom() - control:GetTop()
+            end
+         else
+            if not heightMeter then
+               local bar = control:GetNamedChild("Bar")
+               heightMeter = bar:GetBottom() - control:GetTop()
+            end
+         end
+         local height = heightMeter
+         if item.isCheckbox then
+            height = heightCheckbox
+         end
+         if i == 1 and slideUpDistance then
+            --
+            -- When an entry is deleted from the list, we apply a 
+            -- "slide up" animation to the other rendered entries. 
+            -- We need to leave some blank space for them to slide 
+            -- up into. The animation moves them upward, so their 
+            -- base position must be beneath the space they're 
+            -- sliding into.
+            --
+            yOffset = yOffset + slideUpDistance
+         end
+         control:ClearAnchors()
+         control:SetAnchor(TOPLEFT, self.control, TOPLEFT, 0, yOffset)
+         item:slideUpBy(slideUpDistance)
+         --
+         yOffset = yOffset + height + 16
+      end
+      self.control:SetHeight(yOffset - 16)
    end
-   self.control:SetHeight(yOffset - 16)
 end
 
 function Widget:showCriterion(achievement, criteriaIndex)

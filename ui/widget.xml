@@ -44,6 +44,30 @@
             </StatusBar>
          </Controls>
       </Control>
+      <Control name="AchievementUpdates_CriterionCheckbox" virtual="true">
+         <Controls>
+            <Label name="$(parent)AchName"
+               font="ZoFontGamepadBold20"
+               modifyTextType="UPPERCASE"
+               color="FFFF00"
+            >
+               <Anchor point="TOPLEFT" />
+            </Label>
+            <Texture name="$(parent)Checkbox"
+               textureFile="EsoUI/Art/Inventory/Gamepad/gp_inventory_icon_equipped.dds"
+            >
+               <Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" relativeTo="$(parent)AchName" offsetY="2" />
+               <Dimensions x="22" y="22" />
+            </Texture>
+            <Label name="$(parent)CritName"
+               font="ZoFontGamepad20"
+               modifyTextType="UPPERCASE"
+               color="FFFFFF"
+            >
+               <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="$(parent)Checkbox" offsetY="-2" offsetX="6" />
+            </Label>
+         </Controls>
+      </Control>
       <TopLevelControl name="AchievementUpdate"
          mouseEnabled="true"
          movable="true"
