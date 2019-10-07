@@ -5,13 +5,6 @@ AchievementUpdates = {
 local Achievement -- set this after achievement.lua has loaded
 local Widget      -- set this after widget.lua has loaded
 
---[[
-   POTENTIAL IMPROVEMENTS:
-   
-    - Allow the player to change the maximum number of items 
-      that can display.
-]]--
-
 local function _buildCache()
    local data = {}
    --
@@ -112,13 +105,13 @@ local function Initialize()
          version = 1,
          widgetX = Widget.control:GetLeft() or  48,
          widgetY = Widget.control:GetTop()  or 190,
+         maxItemsToDisplay = 3,
       }
    else
-      local sd      = AchievementUpdatesSavedata
-      local control = Widget.control
-      control:ClearAnchors()
-      control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sd.widgetX, sd.widgetY)
+      Widget:repositionFromSavedata()
    end
+   --
+   AchievementUpdates.registerLAMOptions()
 end
 local function OnAddonLoaded(eventCode, addonName)
    if addonName == "AchievementUpdates" then

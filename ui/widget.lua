@@ -1,8 +1,13 @@
+assert(AchievementUpdates, "bad file load order")
+
 local Widget = {
    control = nil,
    pool    = nil,
    items   = {},
    timerRunning = false,
+   config = {
+      maxItemsToDisplay = 3,
+   },
 }
 AchievementUpdates.Widget = Widget
 
@@ -182,6 +187,12 @@ function Widget:onAddonLoaded()
    self.fragment = ZO_HUDFadeSceneFragment:New(self.control)
    HUD_SCENE:AddFragment(self.fragment)
    HUD_UI_SCENE:AddFragment(self.fragment)
+   --
+   if AchievementUpdatesSavedata then
+      local count = AchievementUpdatesSavedata.maxItemsToDisplay or 3
+      self.config.maxItemsToDisplay = count
+   end
+   --
    self:reflow()
 end
 
@@ -189,12 +200,16 @@ function Widget:onUICursorToggle()
    local isUIMode = IsGameCameraUIModeActive() and DoesGameHaveFocus()
    self.dragBar:SetHidden(not isUIMode)
 end
+function Widget:repositionFromSavedata()
+   local sd      = AchievementUpdatesSavedata
+   local control = self.control
+   control:ClearAnchors()
+   control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, sd.widgetX, sd.widgetY)
+end
 function Widget:onMoveStop()
    AchievementUpdatesSavedata.widgetX = self.control:GetLeft()
    AchievementUpdatesSavedata.widgetY = self.control:GetTop()
 end
-
-local MAX_TO_DISPLAY = 3
 
 local UPDATE_REGISTRATION_NAME = "AchievementUpdateWidgetTimer"
 local MAX_SHOW_DURATION_MS     = 7500
@@ -270,7 +285,7 @@ do
          -- slide-up distance is actually *used*, they'll be non-nil.
          --
       end
-      for i = 1, math.min(MAX_TO_DISPLAY, count) do
+      for i = 1, math.min(self.config.maxItemsToDisplay, count) do
          local item = self.items[i]
          item:show()
          item:redraw()

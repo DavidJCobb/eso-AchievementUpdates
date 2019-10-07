@@ -2,10 +2,12 @@
 ## APIVersion: 100027
 ## AddOnVersion: 1
 ## SavedVariables: AchievementUpdatesSavedata
+## OptionalDependsOn: LibAddonMenu-2.0
 
 lang/en.lua
 lang/$(language).lua
 main.lua
+options.lua
 achievement.lua
 ui/widget.lua
 ui/widget.xml

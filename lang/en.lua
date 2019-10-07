@@ -1,1 +1,5 @@
 ZO_CreateStringId("SI_ACHIEVEMENT_UPDATE_FORMAT_OBJECTIVE", "<<X:1>> +<<X:4>> (<<X:2>>/<<X:3>>)")
+ZO_CreateStringId("SI_ACHIEVEMENT_UPDATE_OPTIONNAME_RESETPOS", "Reset Position")
+ZO_CreateStringId("SI_ACHIEVEMENT_UPDATE_OPTIONDESC_RESETPOS", "Reset the widget to its default on-screen position")
+ZO_CreateStringId("SI_ACHIEVEMENT_UPDATE_OPTIONNAME_MAXITEMS", "Max Updates to Display")
+ZO_CreateStringId("SI_ACHIEVEMENT_UPDATE_OPTIONDESC_MAXITEMS", "The maximum number of achievement progress updates to display at a time.")
