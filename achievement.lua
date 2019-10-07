@@ -136,10 +136,14 @@ function Achievement:isCurrentLineStep()
 end
 function Achievement:flagAllProgressAsChanged()
    local changes = {}
+   local j = 1
    for i, c in ipairs(self.criteria) do
-      changes[i] = i
-      c.lastChange  = c.completed
-      c.countChange = c.lastChange
+      if c.completed > 0 then
+         changes[j] = i
+         j = j + 1
+         c.lastChange  = c.completed
+         c.countChange = c.lastChange
+      end
    end
    return changes
 end
